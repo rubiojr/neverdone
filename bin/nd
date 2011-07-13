@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'clamp'
+require 'everton'
+
+# HACK, FIXME, BAD, SHIT: Ignore SSL warnings
+class Net::HTTP
+  alias_method :old_initialize, :initialize
+  def initialize(*args)
+    old_initialize(*args)
+    @ssl_context = OpenSSL::SSL::SSLContext.new
+    @ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  end
+end
+
+class NeverdoneCommand < Clamp::Command
+  
+  def execute
+    if not defined? @authenticated
+      Everton::Remote.authenticate "#{ENV['HOME']}/.evernote.yml"
+      @authenticated = true
+    end
+    lazy_execute
+  end
+
+end
+
+class ListCommand < NeverdoneCommand
+  def lazy_execute
+    notebook = Everton::Notebook.find('Neverdone Todo')
+    notebook.find_notes("-intitle:s:done").each do |n|
+      puts n.title
+    end
+  end
+end
+
+class AddCommand < NeverdoneCommand
+
+  parameter "TITLE", "Task title"
+  parameter "[TEXT]", "Task text", :default => ''
+
+  def lazy_execute
+    notebook = Everton::Notebook.find('Neverdone Todo')
+    notebook.add_note(title, text)
+  end
+end
+
+class Driver < Clamp::Command
+
+  default_subcommand "help", "Print help" do
+    def execute
+      puts help
+    end
+  end
+  
+  subcommand "list", "List tasks", ListCommand
+  subcommand "add", "Add new task", AddCommand
+
+end
+
+
+Driver.run
