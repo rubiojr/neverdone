@@ -3,6 +3,12 @@ require 'rubygems'
 require 'clamp'
 require 'everton'
 
+# 
+# Task Title Conventions
+# s: = state (done,starred)
+# r: = reminder (date_hour, format: 20110101_HHMM, hour optional)
+#
+
 # HACK, FIXME, BAD, SHIT: Ignore SSL warnings
 class Net::HTTP
   alias_method :old_initialize, :initialize
@@ -28,8 +34,10 @@ end
 class ListCommand < NeverdoneCommand
   def lazy_execute
     notebook = Everton::Notebook.find('Neverdone Todo')
+    count = 0
     notebook.find_notes("-intitle:s:done").each do |n|
-      puts n.title
+      count += 1
+      puts "#{count}. #{n.title}"
     end
   end
 end
