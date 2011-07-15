@@ -1,13 +1,19 @@
 #!/usr/bin/env ruby
 require 'rubygems'
+require 'neverdone'
 require 'clamp'
 require 'everton'
+require 'term/ansicolor'
+
+class String
+  include Term::ANSIColor
+end
 
 # 
 # Task Title Conventions
 # s: = state (done,starred)
 # r: = reminder (date_hour, format: 20110101_HHMM, hour optional)
-#
+# l: = list   (list name, multiple todo list support)
 
 # HACK, FIXME, BAD, SHIT: Ignore SSL warnings
 class Net::HTTP
@@ -25,46 +31,118 @@ class NeverdoneCommand < Clamp::Command
     if not defined? @authenticated
       Everton::Remote.authenticate "#{ENV['HOME']}/.evernote.yml"
       @authenticated = true
+      @notebook = Everton::Notebook.find('Neverdone Todo')
+      if not @notebook
+        print "Neverdone Todo notebook not found, creating..."
+        @notebook = Everton::Notebook.create('Neverdone Todo')
+        puts ' Done'
+      end
     end
     lazy_execute
   end
 
 end
 
-class ListCommand < NeverdoneCommand
+class TasksCommand < NeverdoneCommand
+  option "--all", :flag, "Show completed tasks"
+
   def lazy_execute
-    notebook = Everton::Notebook.find('Neverdone Todo')
     count = 0
-    notebook.find_notes("-intitle:s:done").each do |n|
+    notes = []
+    if all?
+      notes = @notebook.find_notes
+    else
+      notes = @notebook.find_notes("-intitle:s:done")
+    end
+    notes.sort! { |a,b| if a.title =~ /s:done/; -1; else 1;end}
+    notes.each do |n|
+      title = n.title
       count += 1
-      puts "#{count}. #{n.title}"
+      flags = []
+      if title =~ /(s:done)/
+        flags << "s:done".green.bold
+
+        title.gsub!($1, '')
+      end
+      if title =~ /(l:\w+)/
+        flags << $1.white.bold
+        title.gsub!(/(l:\w+)/, '')
+      end
+
+      if flags.size > 0
+        puts "#{count}. #{title.ljust(40)} [#{flags.join(',')}]"
+      else
+        puts "#{count}. #{title}"
+      end
     end
   end
+
 end
 
 class AddCommand < NeverdoneCommand
 
-  parameter "TITLE", "Task title"
-  parameter "[TEXT]", "Task text", :default => ''
+  parameter "TITLE ...", "Task title", :attribute_name => "title"
+  option ["-n", "--note"], "TEXT ...", "Task text", :default => ''
+  option ["-l", "--list"], "LIST", "List to add the task to"
 
   def lazy_execute
-    notebook = Everton::Notebook.find('Neverdone Todo')
-    notebook.add_note(title, text)
+    text = '' if not text
+    t = title.join(' ')
+    if list
+      @notebook.add_note("#{t} l:#{list.gsub(' ', '_')}", text)
+    else
+      @notebook.add_note(t, text)
+    end
+  end
+end
+
+class CheckCommand < NeverdoneCommand
+
+  parameter "NUMBER", "Task number"
+
+  def lazy_execute
+    count = 0
+    @notebook.find_notes("-intitle:s:done").reverse.each do |n|
+      count += 1
+      if count == number.to_i
+        n.title = n.title + ' s:done'
+        n.update
+      end
+    end
+  end
+end
+
+class VersionCommand < NeverdoneCommand
+
+  option "--version", :flag, "print version"
+
+  def lazy_execute
+    puts Neverdone::VERSION
   end
 end
 
 class Driver < Clamp::Command
 
-  default_subcommand "help", "Print help" do
-    def execute
-      puts help
-    end
+  option "--version", :flag, "print version" do
+    puts "Neverdone Version " + ::Neverdone::VERSION
+    exit 
   end
-  
-  subcommand "list", "List tasks", ListCommand
+
+  option "--all", :flag, "Print completed tasks also" do
+    TasksCommand.run(File.basename($0), ['--all'])
+    exit
+  end
+
+  default_subcommand "tasks", "Print pending tasks", TasksCommand
   subcommand "add", "Add new task", AddCommand
+  subcommand "check", "Complete task", CheckCommand
 
 end
 
 
-Driver.run
+begin
+  Driver.run
+rescue SystemExit
+rescue Exception => e
+  puts e.message
+end
