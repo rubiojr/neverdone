@@ -36,6 +36,10 @@ class NeverdoneCommand < Clamp::Command
       #token expired
       authenticate force=true
       @notebook = Everton::Notebook.find('Neverdone Todo')
+    rescue Evernote::EDAM::Error::EDAMUserException
+      #token expired
+      authenticate force=true
+      @notebook = Everton::Notebook.find('Neverdone Todo')
     end
     if not @notebook
       print "Neverdone Todo notebook not found, creating..."
@@ -169,10 +173,4 @@ class Driver < Clamp::Command
 
 end
 
-
-begin
-  Driver.run
-rescue SystemExit
-rescue Exception => e
-  puts e.message
-end
+Driver.run
