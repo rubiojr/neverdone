@@ -1,7 +1,7 @@
 require 'yaml'
 
 module Neverdone
-  VERSION = '0.1.1'
+  VERSION = '0.1.2'
   CONSUMER_KEY = 'rubiojr'
   CONSUMER_SECRET = 'c4f8a1e0f09c27ec'
 
