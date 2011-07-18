@@ -18,8 +18,8 @@ Jeweler::Tasks.new do |gem|
   gem.version = Neverdone::VERSION
   gem.homepage = "http://github.com/rubiojr/neverdone"
   gem.license = "MIT"
-  gem.summary = %Q{Command Line Todo for Evernote}
-  gem.description = %Q{Command Line Todo for Evernote}
+  gem.summary = %Q{Evernote powered Todo for command line ninjas}
+  gem.description = %Q{Evernote powered Todo for command line ninjas}
   gem.email = "rubiojr@frameos.org"
   gem.authors = ["Sergio Rubio"]
   # Include your dependencies below. Runtime dependencies are required when using your gem,
