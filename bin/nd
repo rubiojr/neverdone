@@ -4,6 +4,7 @@ require 'neverdone'
 require 'clamp'
 require 'everton'
 require 'term/ansicolor'
+require 'highline/import'
 
 class String
   include Term::ANSIColor
@@ -28,17 +29,46 @@ end
 class NeverdoneCommand < Clamp::Command
   
   def execute
-    if not defined? @authenticated
-      Everton::Remote.authenticate "#{ENV['HOME']}/.evernote.yml"
-      @authenticated = true
+    begin
+      authenticate
       @notebook = Everton::Notebook.find('Neverdone Todo')
-      if not @notebook
-        print "Neverdone Todo notebook not found, creating..."
-        @notebook = Everton::Notebook.create('Neverdone Todo')
-        puts ' Done'
-      end
+    rescue Evernote::EDAM::Error::EDAMSystemException
+      #token expired
+      authenticate force=true
+      @notebook = Everton::Notebook.find('Neverdone Todo')
+    end
+    if not @notebook
+      print "Neverdone Todo notebook not found, creating..."
+      @notebook = Everton::Notebook.create('Neverdone Todo')
+      puts ' Done'
     end
     lazy_execute
+  end
+
+  def authenticate(force=false)
+    @config = Neverdone::Config.load
+    auth = { 
+      :user_store_url => @config[:user_store_url],
+      :consumer_key => Neverdone::CONSUMER_KEY,
+      :consumer_secret => Neverdone::CONSUMER_SECRET,
+      :access_token => @config[:access_token]
+    }
+    if not @config[:username]
+      auth[:username] = ask("Evernote username: ")
+    else
+      auth[:username] = @config[:username]
+    end
+    if not @config[:password]
+      auth[:password] = ask("Evernote password: ") { |q| q.echo = false }
+      puts "\nConfiguration stored at #{ENV['HOME']}/.neverdone.conf\n\n"
+    else
+      auth[:password] = @config[:password]
+    end
+    Everton::Remote.authenticate auth, force
+    @config[:access_token] = Everton::Remote.access_token
+    @config[:username] = auth[:username] 
+    @config[:password] = auth[:password] 
+    @config.save
   end
 
 end
